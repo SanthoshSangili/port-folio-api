@@ -77,5 +77,4 @@ public class GoogleConfig {
 		private String content;
 	}
 
-	
 }
