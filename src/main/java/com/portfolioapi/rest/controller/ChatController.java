@@ -38,10 +38,16 @@ public class ChatController {
 
 		BaseDto dto = new BaseDto();
 
+		// ------------------------------------------------
+		// CHAT BOT SEND
+		// ------------------------------------------------
+
 		try {
 			List<Map<String, Object>> messages = (List<Map<String, Object>>) payload.get("messages");
 
-			log.error("messages :", messages);
+			List<Map<String, Object>> chatHistry = (List<Map<String, Object>>) payload.get("contents");
+
+			log.info("chatHistry: {}", chatHistry);
 
 			if (messages == null || messages.isEmpty()) {
 				dto.setStatusCode(1);
@@ -49,23 +55,19 @@ public class ChatController {
 				return dto;
 			}
 
-			// System message
+			// SYSTEM MESSAGE
 			Map<String, Object> systemMessage = new HashMap<>();
 			systemMessage.put("role", googleConfig.getConfig().getSystemInstruction().getRole());
 			systemMessage.put("content", googleConfig.getConfig().getSystemInstruction().getContent());
 
 			messages.add(0, systemMessage);
 
-			log.error("systemMessage :", systemMessage);
-
-			// Final request body
+			// FINAL GROQ REQUEST BODY
 			Map<String, Object> finalRequestBody = new HashMap<>();
 			finalRequestBody.put("model", googleConfig.getConfig().getModel());
-			finalRequestBody.put("messages", messages); // ✅ IMPORTANT
+			finalRequestBody.put("messages", messages);
 
-			log.error("finalRequestBody :", finalRequestBody);
-
-			// Headers
+			// HEADERS
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			headers.setBearerAuth(googleConfig.getApi().getKey());
@@ -75,18 +77,77 @@ public class ChatController {
 			ResponseEntity<String> response = restTemplate.postForEntity(googleConfig.getApi().getUrl(), request,
 					String.class);
 
-			log.error("response :", response);
-
 			Object jsonResponse = objectMapper.readValue(response.getBody(), Object.class);
-
-			log.error("jsonResponse :", jsonResponse);
 
 			dto.setStatusCode(0);
 			dto.setResponseContent(jsonResponse);
+
+			// ------------------------------------------------
+			// TELEGRAM SEND
+			// ------------------------------------------------
+
+			// jsonResponse is the full response object
+			Map<String, Object> map = (Map<String, Object>) jsonResponse;
+
+			// Get "choices" directly from the top-level map
+			List<Map<String, Object>> choices = (List<Map<String, Object>>) map.get("choices");
+
+			if (choices != null && !choices.isEmpty()) {
+				// Get first choice
+				Map<String, Object> firstChoice = choices.get(0);
+
+				// Get message map
+				Map<String, Object> message = (Map<String, Object>) firstChoice.get("message");
+
+				// Get AI response content
+				String aiResponse = message != null ? (String) message.get("content") : null;
+
+				log.info("AI Response: " + aiResponse);
+
+				// Check if it contains "outside my scope"
+				if (aiResponse != null && aiResponse.toLowerCase().contains("outside my scope")) {
+//					String lastUserMessage = messages.get(messages.size() - 1).get("content").toString();
+
+					log.info("googleConfig.getTelegramApiUrl(): {}", googleConfig.getApi().getTelUrl());
+
+					// Build the formatted string for Telegram
+					StringBuilder sb = new StringBuilder();
+					for (Map<String, Object> content : chatHistry) {
+						sb.append("role: ").append(content.get("role")).append("\n");
+						sb.append("message: ").append(content.get("message")).append("\n");
+					}
+
+					// Append the AI response **at the end**
+					if (aiResponse != null) {
+						sb.append("role: system\n");
+						sb.append("message: ").append(aiResponse).append("\n");
+					}
+
+					// Remove trailing newline
+					String formattedMessage = sb.toString().trim();
+
+					// Send to Telegram
+					Map<String, Object> telegramBody = new HashMap<>();
+					telegramBody.put("chat_id", googleConfig.getApi().getTelCID());
+					telegramBody.put("text", formattedMessage);
+
+					HttpHeaders telegramHeaders = new HttpHeaders();
+					telegramHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+					HttpEntity<Map<String, Object>> telegramRequest = new HttpEntity<>(telegramBody, telegramHeaders);
+
+					restTemplate.postForEntity(googleConfig.getApi().getTelUrl(), telegramRequest, String.class);
+					log.info("Received payload: {}", payload);
+				} else {
+					log.error("Response is inside scope");
+				}
+			} else {
+				log.error("No choices found in response");
+			}
+
 			return dto;
 
 		} catch (Exception e) {
-			log.error("API Error:", e);
 			dto.setStatusCode(1);
 			dto.setErrorDescription(e.getMessage());
 			return dto;
