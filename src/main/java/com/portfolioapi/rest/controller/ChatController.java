@@ -161,8 +161,8 @@ public class ChatController {
 		return "OK";
 	}
 
-//	@Scheduled(fixedRate = 1 * 60 * 1000)
-	@Scheduled(fixedRate = 10 * 1000)
+	@Scheduled(fixedRate = 1 * 60 * 1000)
+//	@Scheduled(fixedRate = 10 * 1000)
 	public void pingSelf() {
 		try {
 			String url = "https://port-folio-api.onrender.com/chat/health"; // replace with your app URL
