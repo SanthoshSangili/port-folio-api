@@ -8,7 +8,9 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -154,56 +156,22 @@ public class ChatController {
 		}
 	}
 
-//	@PostMapping("/send")
-//	public BaseDto receiveChat(@RequestBody Map<String, Object> payload) {
-//
-//		BaseDto dto = new BaseDto();
-//
-//		if (payload == null || payload.isEmpty()) {
-//			dto.setStatusCode(1);
-//			dto.setMessage("No contents provided!");
-//			return dto;
-//		}
-//
-//		log.info("Received payload: {}", payload);
-//
-//		List<Map<String, Object>> uiContents = (List<Map<String, Object>>) payload.get("contents");
-//
-//		if (uiContents == null) {
-//			dto.setStatusCode(1);
-//			dto.setMessage("UI contents missing!");
-//			return dto;
-//		}
-//
-//		Map<String, Object> systemMessage = Map.of("role", googleConfig.getConfig().getSystemInstruction().getRole(),
-//				"parts", googleConfig.getConfig().getSystemInstruction().getParts());
-//
-//		Map<String, Object> finalRequestBody = new HashMap<>();
-//		finalRequestBody.put("system_instruction", systemMessage);
-//		finalRequestBody.put("contents", uiContents);
-//
-//		HttpHeaders headers = new HttpHeaders();
-//		headers.setContentType(MediaType.APPLICATION_JSON);
-//		headers.set("X-Goog-Api-Key", googleConfig.getApi().getKey());
-//
-//		HttpEntity<Object> request = new HttpEntity<>(finalRequestBody, headers);
-//
-//		try {
-//			ResponseEntity<String> response = restTemplate.postForEntity(googleConfig.getApi().getUrl(), request,
-//					String.class);
-//
-//			Object jsonResponse = objectMapper.readValue(response.getBody(), Object.class);
-//
-//			dto.setStatusCode(0);
-//			dto.setResponseContent(jsonResponse);
-//			return dto;
-//
-//		} catch (Exception e) {
-//			log.error("API Error: ", e);
-//			dto.setStatusCode(1);
-//			dto.setErrorDescription(e.getMessage());
-//			return dto;
-//		}
-//	}
+	@GetMapping("/health")
+	public String health() {
+		return "OK";
+	}
 
+//	@Scheduled(fixedRate = 1 * 60 * 1000)
+	@Scheduled(fixedRate = 10 * 1000)
+	public void pingSelf() {
+		try {
+			String url = "https://port-folio-api.onrender.com/chat/health"; // replace with your app URL
+			RestTemplate restTemplate = new RestTemplate();
+			String response = restTemplate.getForObject(url, String.class);
+
+			log.info("Self-ping executed. Response: " + response);
+		} catch (Exception e) {
+			log.error("Self-ping failed: " + e.getMessage());
+		}
+	}
 }
